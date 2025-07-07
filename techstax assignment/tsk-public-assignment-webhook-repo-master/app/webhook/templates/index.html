@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GitHub Webhook Event Logs</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 2rem;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .event {
+      background: #fff;
+      border-left: 5px solid #4CAF50;
+      padding: 1rem;
+      margin: 1rem auto;
+      width: 80%;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+    }
+    .event.merge { border-left-color: #673AB7; }
+    .event.pull_request { border-left-color: #2196F3; }
+    .event.push { border-left-color: #4CAF50; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-right: 10px;
+      text-transform: uppercase;
+      font-weight: bold;
+      color: #fff;
+    }
+    .badge.push { background: #4CAF50; }
+    .badge.pull_request { background: #2196F3; }
+    .badge.merge { background: #673AB7; }
+    .timestamp {
+      color: #666;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Latest GitHub Events</h1>
+  <div id="events">Loading...</div>
+
+  <script>
+    function ordinal(n) {
+      const s = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+
+    function formatTimestamp(iso) {
+      const date = new Date(iso);
+      const day = ordinal(date.getUTCDate());
+      const month = date.toLocaleString('default', { month: 'long' });
+      const year = date.getUTCFullYear();
+      let hours = date.getUTCHours();
+      const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+
+      return `${day} ${month} ${year} - ${hours}:${minutes} ${ampm} UTC`;
+    }
+
+    function fetchEvents() {
+      fetch("/events")
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById("events");
+          container.innerHTML = "";
+
+          if (!data.length) {
+            container.innerHTML = "<p>No events yet.</p>";
+            return;
+          }
+
+          data.forEach(event => {
+            const div = document.createElement("div");
+            div.className = `event ${event.event}`;
+
+            const badge = `<span class="badge ${event.event}">${event.event}</span>`;
+            const time = formatTimestamp(event.timestamp);
+            let msg = "";
+
+            if (event.event === "push") {
+              msg = `${event.author} pushed to <strong>${event.to_branch}</strong>`;
+            } else if (event.event === "pull_request") {
+              msg = `${event.author} submitted a pull request from <strong>${event.from_branch}</strong> to <strong>${event.to_branch}</strong>`;
+            } else if (event.event === "merge") {
+              msg = `${event.author} merged branch <strong>${event.from_branch}</strong> to <strong>${event.to_branch}</strong>`;
+            }
+
+            div.innerHTML = `
+              ${badge} ${msg}
+              <div class="timestamp">${time}</div>
+            `;
+            container.appendChild(div);
+          });
+        })
+        .catch(err => {
+          console.error("Error fetching events:", err);
+          document.getElementById("events").innerText = "Error loading events.";
+        });
+    }
+
+    fetchEvents();
+    setInterval(fetchEvents, 15000); // Refresh every 15 seconds
+  </script>
+</body>
+</html>
